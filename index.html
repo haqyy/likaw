@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Foto buat Alika</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#ff5fa2">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#ffd3e6;--dot:#ffbcd8;--win:#fff2f8;--ink:#7a1a4a;--pink:#ff5fa2;--lilac:#d6b8ff;--mint:#b9f0d8;--line:#7a1a4a;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#3a1530;--dot:#4a1c3d;--win:#2b0f24;--ink:#ffd3e6;--pink:#ff6fae;--lilac:#7b5aa6;--mint:#2f6b55;--line:#ff9cc7}}
+:root[data-theme="dark"]{--bg:#3a1530;--dot:#4a1c3d;--win:#2b0f24;--ink:#ffd3e6;--pink:#ff6fae;--lilac:#7b5aa6;--mint:#2f6b55;--line:#ff9cc7}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;font-family:'Pixelify Sans',system-ui,sans-serif;color:var(--ink);background-color:var(--bg);
+background-image:linear-gradient(45deg,var(--dot) 25%,transparent 25%,transparent 75%,var(--dot) 75%),linear-gradient(45deg,var(--dot) 25%,transparent 25%,transparent 75%,var(--dot) 75%);background-size:40px 40px;background-position:0 0,20px 20px;min-height:100vh}
+main{max-width:480px;margin:0 auto;padding:16px 14px 90px}
+.win{background:var(--win);border:3px solid var(--line);border-radius:10px;box-shadow:5px 5px 0 var(--line);margin-bottom:20px;overflow:hidden}
+.bar{display:flex;align-items:center;justify-content:space-between;background:var(--pink);color:#fff;padding:6px 10px;font-weight:700;border-bottom:3px solid var(--line)}
+.dots span{display:inline-block;width:12px;height:12px;border:2px solid var(--line);background:var(--win);border-radius:50%;margin-left:5px}
+.body{padding:16px}
+h1{margin:0 0 6px;font-size:1.6rem;line-height:1.2}
+.msg{font-size:1.15rem;margin:0 0 12px}
+.slots{display:flex;gap:10px;justify-content:center;margin:12px 0}
+.slot{width:56px;height:56px;border:3px dashed var(--line);border-radius:12px;display:grid;place-items:center;font-size:1.7rem;background:var(--win)}
+.slot.on{border-style:solid;background:var(--pink);animation:pop .35s}
+@keyframes pop{50%{transform:scale(1.25) rotate(-6deg)}}
+.status{text-align:center;font-weight:600}
+.btn{width:100%;border:3px solid var(--line);background:var(--lilac);color:var(--ink);font:700 1.1rem 'Pixelify Sans',sans-serif;padding:12px;border-radius:10px;box-shadow:3px 3px 0 var(--line);cursor:pointer;margin-top:10px}
+.btn:active{transform:translate(3px,3px);box-shadow:none}
+.btn.main{background:var(--pink);color:#fff}
+.btn.mint{background:var(--mint)}
+button:focus-visible,input:focus-visible{outline:3px solid var(--ink);outline-offset:2px}
+.day{font-weight:700;margin:6px 2px 10px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:12px}
+.pol{background:#fff;border:3px solid var(--line);border-radius:6px;padding:7px 7px 4px;box-shadow:3px 3px 0 var(--line);cursor:pointer;transform:rotate(var(--r));color:#7a1a4a;padding-bottom:6px;font-size:.8rem;text-align:center;border-radius:6px}
+.pol img{width:100%;aspect-ratio:1;object-fit:cover;display:block;margin-bottom:4px}
+.empty{text-align:center;padding:10px 4px}
+.times{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}
+.times input{width:100%;font:600 1.05rem 'Pixelify Sans',sans-serif;padding:8px;border:3px solid var(--line);border-radius:8px;background:var(--win);color:var(--ink)}
+.small{font-size:.85rem;opacity:.85;margin:10px 0 0}
+dialog{border:3px solid var(--line);border-radius:12px;background:var(--win);color:var(--ink);padding:0;max-width:92vw;width:380px;box-shadow:6px 6px 0 var(--line);font-family:'Pixelify Sans',sans-serif}
+dialog::backdrop{background:rgba(122,26,74,.55)}
+dialog img{width:100%;display:block;max-height:60vh;object-fit:contain;background:#000}
+.row{display:flex;gap:10px;padding:12px}.row .btn{margin:0}
+[hidden]{display:none}
+@media (prefers-reduced-motion:reduce){.slot.on{animation:none}}
+</style>
+</head>
+<body>
+<main>
+<div class="win">
+ <div class="bar"><span>alika.exe</span><span class="dots"><span></span><span></span></span></div>
+ <div class="body">
+  <h1>Alika lagi nungguin foto abang 💌</h1>
+  <p class="msg" id="msg"></p>
+  <div class="slots" id="slots" aria-hidden="true"></div>
+  <div class="status" id="status"></div>
+  <input type="file" id="file" accept="image/*" multiple hidden>
+  <button class="btn main" id="add">📸 Tambah foto</button>
+ </div>
+</div>
+
+<div class="win">
+ <div class="bar"><span>album_alika</span><span class="dots"><span></span><span></span></span></div>
+ <div class="body" id="album"></div>
+</div>
+
+<div class="win">
+ <div class="bar"><span>pengingat</span><span class="dots"><span></span><span></span></span></div>
+ <div class="body">
+  <div>Empat waktu kirim foto tiap hari:</div>
+  <div class="times" id="times"></div>
+  <button class="btn mint" id="notif">🔔 Aktifin notifikasi</button>
+  <p class="small">Pengingat jalan selama halaman ini kebuka. Biar pasti, pasang juga alarm di HP.</p>
+ </div>
+</div>
+</main>
+
+<dialog id="view">
+ <img id="big" alt="Foto">
+ <div class="row"><button class="btn" id="close">Tutup</button><button class="btn main" id="del">Hapus</button></div>
+</dialog>
+
+<dialog id="remind">
+ <div class="bar"><span>💌 pesan baru</span></div>
+ <div class="body"><h1>Alika lagi nungguin foto abang</h1><p class="msg" id="rt"></p></div>
+ <div class="row"><button class="btn" id="later">Nanti</button><button class="btn main" id="now">Kirim foto</button></div>
+</dialog>
+
+<script>
+const $=id=>document.getElementById(id);
+const GOAL=4;
+let photos=[],db=null,openId=null;
+
+/* storage: IndexedDB for photos, localStorage for times (both guarded) */
+function openDB(){return new Promise(res=>{try{const r=indexedDB.open('alika',1);r.onupgradeneeded=()=>r.result.createObjectStore('p',{keyPath:'id'});r.onsuccess=()=>res(r.result);r.onerror=()=>res(null)}catch(e){res(null)}})}
+function dbAll(){return new Promise(res=>{if(!db)return res([]);try{const q=db.transaction('p').objectStore('p').getAll();q.onsuccess=()=>res(q.result);q.onerror=()=>res([])}catch(e){res([])}})}
+function dbPut(p){if(!db)return;try{db.transaction('p','readwrite').objectStore('p').put(p)}catch(e){}}
+function dbDel(id){if(!db)return;try{db.transaction('p','readwrite').objectStore('p').delete(id)}catch(e){}}
+
+const defTimes=['08:00','12:00','17:00','20:00'];
+let times=defTimes.slice();
+try{const t=JSON.parse(localStorage.getItem('alika-times'));if(Array.isArray(t)&&t.length===4)times=t}catch(e){}
+function saveTimes(){try{localStorage.setItem('alika-times',JSON.stringify(times))}catch(e){}}
+
+const dayKey=ts=>{const d=new Date(ts);return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')};
+const todayCount=()=>photos.filter(p=>dayKey(p.ts)===dayKey(Date.now())).length;
+
+function resize(file){return new Promise(res=>{const u=URL.createObjectURL(file),i=new Image();
+ i.onload=()=>{const m=1000,s=Math.min(1,m/Math.max(i.width,i.height)),c=document.createElement('canvas');c.width=Math.round(i.width*s);c.height=Math.round(i.height*s);c.getContext('2d').drawImage(i,0,0,c.width,c.height);URL.revokeObjectURL(u);res(c.toDataURL('image/jpeg',.8))};
+ i.onerror=()=>{URL.revokeObjectURL(u);res(null)};i.src=u})}
+
+function lines(n){
+ if(n>=GOAL)return['Yay! Alika seneng banget, foto hari ini udah lengkap 💖','Makasih abang, Alika udah kenyang fotonya!'];
+ return ['Hari ini baru '+n+' foto. Alika masih nungguin…','Tinggal '+(GOAL-n)+' foto lagi ya bang 🥺'];
+}
+function render(){
+ const n=todayCount(),l=lines(n);
+ $('msg').textContent=l[1];$('status').textContent=n+' / '+GOAL+' foto hari ini';
+ $('slots').innerHTML='';for(let i=0;i<GOAL;i++){const s=document.createElement('div');s.className='slot'+(i<n?' on':'');s.textContent=i<n?'💗':'🤍';$('slots').appendChild(s)}
+ const a=$('album');a.innerHTML='';
+ if(!photos.length){a.innerHTML='<div class="empty">Belum ada foto. Alika nungguin lho 🥺</div>';return}
+ const groups={};photos.slice().sort((x,y)=>y.ts-x.ts).forEach(p=>{(groups[dayKey(p.ts)]=groups[dayKey(p.ts)]||[]).push(p)});
+ Object.keys(groups).forEach(k=>{
+  const h=document.createElement('div');h.className='day';
+  h.textContent=new Date(groups[k][0].ts).toLocaleDateString('id-ID',{weekday:'long',day:'numeric',month:'long'})+' · '+groups[k].length+' foto';
+  a.appendChild(h);
+  const g=document.createElement('div');g.className='grid';
+  groups[k].forEach((p,i)=>{const d=document.createElement('button');d.className='pol';d.style.setProperty('--r',(i%2?1.5:-1.5)+'deg');d.style.font='inherit';
+   d.innerHTML='<img alt="Foto abang">'+new Date(p.ts).toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit'});
+   d.querySelector('img').src=p.data;d.onclick=()=>{openId=p.id;$('big').src=p.data;$('view').showModal()};g.appendChild(d)});
+  a.appendChild(g);
+ });
+}
+
+$('add').onclick=()=>$('file').click();
+$('file').onchange=async e=>{
+ const files=[...e.target.files];$('add').textContent='⏳ Nyimpen…';
+ for(const f of files){const data=await resize(f);if(!data)continue;const p={id:Date.now()+Math.random(),ts:Date.now(),data};photos.push(p);dbPut(p)}
+ $('add').textContent='📸 Tambah foto';e.target.value='';render();
+};
+$('close').onclick=()=>$('view').close();
+$('del').onclick=()=>{if(confirm('Hapus foto ini?')){photos=photos.filter(p=>p.id!==openId);dbDel(openId);$('view').close();render()}};
+
+/* reminder times */
+times.forEach((t,i)=>{const inp=document.createElement('input');inp.type='time';inp.value=t;inp.setAttribute('aria-label','Pengingat '+(i+1));inp.onchange=()=>{times[i]=inp.value;saveTimes();scheduleNative()};$('times').appendChild(inp)});
+$('notif').onclick=async()=>{
+ if(LN){const r=await LN.requestPermissions();$('notif').textContent=r.display==='granted'?'✅ Notif aktif':'Notif ditolak';scheduleNative();return}
+ if(!('Notification' in window)){$('notif').textContent='HP ini gak support notif';return}
+ const r=await Notification.requestPermission();$('notif').textContent=r==='granted'?'✅ Notif aktif':'Notif ditolak';
+};
+const fired={};
+function fire(i){
+ const n=todayCount(),txt=lines(n)[1];
+ $('rt').textContent='Baru '+n+' foto hari ini. '+txt;
+ try{if(Notification.permission==='granted')new Notification('Alika lagi nungguin foto abang',{body:'Baru '+n+' / '+GOAL+' foto hari ini'})}catch(e){}
+ if(!$('remind').open)$('remind').showModal();
+}
+setInterval(()=>{
+ const d=new Date(),hm=String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0'),k=dayKey(Date.now());
+ times.forEach((t,i)=>{if(t===hm&&!fired[k+t]){fired[k+t]=1;if(todayCount()<i+1)fire(i)}});
+},20000);
+$('later').onclick=()=>$('remind').close();
+$('now').onclick=()=>{$('remind').close();$('file').click()};
+
+/* Capacitor (APK): pengingat harian jalan walau app ketutup */
+const LN=window.Capacitor&&window.Capacitor.Plugins&&window.Capacitor.Plugins.LocalNotifications;
+async function scheduleNative(){
+ if(!LN)return;
+ try{
+  const perm=await LN.checkPermissions();
+  if(perm.display!=='granted')return;
+  await LN.cancel({notifications:[1,2,3,4].map(id=>({id}))});
+  await LN.schedule({notifications:times.map((t,i)=>({id:i+1,title:'Alika lagi nungguin foto abang',body:'Kirim foto ya bang 💌',schedule:{on:{hour:+t.split(':')[0],minute:+t.split(':')[1]},allowWhileIdle:true}}))});
+ }catch(e){}
+}
+if('serviceWorker' in navigator&&location.protocol.startsWith('http')){try{navigator.serviceWorker.register('sw.js')}catch(e){}}
+(async()=>{db=await openDB();photos=await dbAll();render();scheduleNative()})();
+</script>
+</body>
+</html>
