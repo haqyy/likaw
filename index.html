@@ -55,6 +55,31 @@ textarea.f{min-height:90px;resize:vertical}
 .cd[data-n="1"],.cd[data-n="2"],.cd[data-n="3"]{color:#5c0f36}
 .cd.sel{outline:3px solid var(--ink);outline-offset:1px}
 .cd:disabled{opacity:.4;cursor:default}
+.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;display:flex;align-items:center;gap:12px;padding:10px 14px;background:var(--pink);color:#4a0a2b;border-bottom:3px solid var(--line);font-weight:700;font-size:1.25rem}
+.top button{width:44px;height:44px;border:3px solid var(--line);background:var(--win);color:var(--ink);border-radius:10px;font:700 1.3rem 'Pixelify Sans',sans-serif;cursor:pointer;padding:0}
+#scrim{position:fixed;inset:0;background:rgba(74,10,43,.55);z-index:30}
+#side{position:fixed;top:0;bottom:0;left:0;width:min(78vw,300px);z-index:40;background:var(--win);border-right:3px solid var(--line);box-shadow:5px 0 0 var(--line);padding:calc(env(safe-area-inset-top,0px) + 16px) 14px 16px;display:flex;flex-direction:column;gap:2px;transform:translateX(-105%);visibility:hidden;transition:transform .25s,visibility .25s}
+#side.open{transform:none;visibility:visible}
+#side .sh{font-weight:700;font-size:1.3rem;margin-bottom:8px}
+#side .btn{text-align:left}
+.btn.act{background:var(--pink);color:#fff}
+@media (prefers-reduced-motion:reduce){#side{transition:none}}
+.lmsg{min-height:70px;display:grid;place-items:center;text-align:center;font-weight:600;font-size:1.1rem;line-height:1.4;border:3px dashed var(--line);border-radius:12px;padding:10px;margin-bottom:6px;background:var(--win)}
+.hearts{display:flex;flex-wrap:wrap;gap:4px 8px;justify-content:center;align-items:center;padding:6px 0}
+.hbtn{border:0;background:none;cursor:pointer;padding:4px;line-height:1;font-size:var(--s,2.2rem);animation:bob 2.4s ease-in-out infinite;animation-delay:var(--d,0s);filter:drop-shadow(2px 2px 0 var(--line))}
+.hbtn:active{transform:scale(1.3)}
+@keyframes bob{50%{transform:translateY(-8px) rotate(var(--r,0deg))}}
+.pop{position:fixed;pointer-events:none;z-index:60;font-size:1.3rem;animation:flo 1s ease-out forwards}
+@keyframes flo{from{opacity:1;transform:translate(0,0) scale(.8)}to{opacity:0;transform:translate(var(--x,0px),-90px) scale(1.4)}}
+@media (prefers-reduced-motion:reduce){.hbtn{animation:none}.pop{display:none}}
+.hbtn{font-size:0;animation:bob2 1.2s steps(2,end) infinite;animation-delay:var(--d,0s)}
+.hbtn svg{display:block;width:var(--w,44px);height:auto}
+@keyframes bob2{50%{transform:translateY(-6px)}}
+.pop svg{display:block;width:18px;height:auto}
+.nitem{display:flex;gap:8px;align-items:flex-start;border:3px solid var(--line);border-radius:10px;padding:8px 10px;margin-top:8px;background:var(--win);font-size:.95rem}
+.nitem span{flex:1;overflow-wrap:anywhere}
+.nitem small{display:block;opacity:.75}
+.nitem button{width:36px;height:36px;border:3px solid var(--line);background:var(--lilac);color:var(--ink);border-radius:8px;font:700 1rem 'Pixelify Sans',sans-serif;cursor:pointer;padding:0;flex:none}
 .small{font-size:.85rem;opacity:.85;margin:10px 0 0}
 dialog{border:3px solid var(--line);border-radius:12px;background:var(--win);color:var(--ink);padding:0;max-width:92vw;width:380px;box-shadow:6px 6px 0 var(--line);font-family:'Pixelify Sans',sans-serif}
 dialog::backdrop{background:rgba(122,26,74,.55)}
@@ -65,8 +90,18 @@ dialog img{width:100%;display:block;max-height:60vh;object-fit:contain;backgroun
 </style>
 </head>
 <body>
+<header class="top"><button id="menu" aria-label="Buka menu" aria-expanded="false" aria-controls="side">☰</button><span id="ptitle">Beranda</span></header>
+<div id="scrim" hidden></div>
+<nav id="side" aria-label="Menu utama">
+ <div class="sh">alika.exe 💌</div>
+ <button class="btn" data-go="beranda">🏠 Beranda</button>
+ <button class="btn" data-go="album">🖼️ Album</button>
+ <button class="btn" data-go="recap">📅 Recap</button>
+ <button class="btn" data-go="sinkron">☁️ Sinkron</button>
+ <button class="btn" data-go="pengingat">🔔 Pengingat</button>
+</nav>
 <main>
-<div class="win">
+<div class="win" data-page="beranda">
  <div class="bar"><span>alika.exe</span><span class="dots"><span></span><span></span></span></div>
  <div class="body">
   <h1>Alika lagi nungguin foto abang 💌</h1>
@@ -78,12 +113,26 @@ dialog img{width:100%;display:block;max-height:60vh;object-fit:contain;backgroun
  </div>
 </div>
 
-<div class="win">
+<div class="win" data-page="beranda">
+ <div class="bar"><span>love.exe</span><span class="dots"><span></span><span></span></span></div>
+ <div class="body">
+  <div class="lmsg" id="lmsg" aria-live="polite">Tap hati pixel di bawah, ada pesan dari abang buat Alika 💌</div>
+  <div class="hearts" id="hearts"></div>
+  <div class="nadd">
+   <input class="f" id="ntext" maxlength="140" placeholder="Tulis kata-kata, nanti muncul pas hati di-tap" aria-label="Kata-kata baru">
+   <button class="btn main" id="nbtn">💌 Tambah kata-kata</button>
+   <div class="small" id="nstat"></div>
+   <div id="nlist"></div>
+  </div>
+ </div>
+</div>
+
+<div class="win" data-page="album">
  <div class="bar"><span>album_alika</span><span class="dots"><span></span><span></span></span></div>
  <div class="body" id="album"></div>
 </div>
 
-<div class="win">
+<div class="win" data-page="recap">
  <div class="bar"><span>recap_alika</span><span class="dots"><span></span><span></span></span></div>
  <div class="body">
   <div class="rhead"><button id="rprev" aria-label="Bulan sebelumnya">◀</button><span id="rmonth"></span><button id="rnext" aria-label="Bulan berikutnya">▶</button></div>
@@ -95,7 +144,7 @@ dialog img{width:100%;display:block;max-height:60vh;object-fit:contain;backgroun
  </div>
 </div>
 
-<div class="win">
+<div class="win" data-page="sinkron">
  <div class="bar"><span>sinkron_online</span><span class="dots"><span></span><span></span></span></div>
  <div class="body">
   <div class="status" id="syncs">Belum tersambung.</div>
@@ -111,7 +160,7 @@ dialog img{width:100%;display:block;max-height:60vh;object-fit:contain;backgroun
  </div>
 </div>
 
-<div class="win">
+<div class="win" data-page="pengingat">
  <div class="bar"><span>pengingat</span><span class="dots"><span></span><span></span></span></div>
  <div class="body">
   <div>Empat waktu kirim foto tiap hari:</div>
@@ -301,7 +350,7 @@ $('slink').onclick=async()=>{
  const m=location.hash.match(/^#s=(.+)$/);if(!m)return;
  try{
   let o;const v=m[1];if(v.includes('.')){const q=v.split('.');o={cfg:{apiKey:q[0],projectId:q[1],authDomain:q[1]+'.firebaseapp.com'},code:q[2]}}else o=b64d(v);
-  if(!getSync()&&o.cfg&&o.code){$('cfg').value=JSON.stringify(o.cfg);$('code').value=o.code;$('nm').value='Alika';setStatus('Link kebaca! Cek namanya, lalu tap Sambungin.')}
+  if(!getSync()&&o.cfg&&o.code){$('cfg').value=JSON.stringify(o.cfg);$('code').value=o.code;$('nm').value='Alika';setStatus('Link kebaca! Cek namanya, lalu tap Sambungin.');window.__magic=1}
   history.replaceState(null,'',location.pathname+location.search);
  }catch(e){}
 })();
@@ -328,6 +377,17 @@ async function startSync(){
    if(first){first=false;const ids=new Set(snap.docs.map(x=>x.id));photos.filter(p=>!ids.has(String(p.id))).forEach(pushRemote)}
    render();setStatus('✅ Tersambung · '+photos.length+' foto');
   },err=>setStatus('Gagal sambung: '+(err.code||err.message)));
+  sync.ncol=fs.collection(fdb,'albums',st.code,'notes');let nfirst=true;
+  sync.nunsub=fs.onSnapshot(sync.ncol,snap=>{
+   let ch=false;$('nstat').textContent='';
+   snap.docChanges().forEach(c=>{
+    const id=c.doc.id,d=c.doc.data();
+    if(c.type==='removed'){const k=notes.length;notes=notes.filter(x=>x.id!==id);if(notes.length!==k)ch=true;return}
+    if(!notes.some(x=>x.id===id)){notes.push({id,text:String(d.text||'').slice(0,140),by:d.by||'',ts:d.ts||0});ch=true}
+   });
+   if(nfirst){nfirst=false;const ids=new Set(snap.docs.map(x=>x.id));notes.filter(n=>!ids.has(n.id)).forEach(pushNote)}
+   if(ch){saveNotes();lbag=[];renderNotes()}
+  },err=>{$('nstat').textContent='Kata-kata belum ke-sinkron. Update Rules Firestore dulu ('+(err.code||'error')+').'});
  }catch(e){setStatus('Gagal sambung. Cek internet atau config-nya.');showForm(true)}
 }
 $('ssave').onclick=()=>{
@@ -339,10 +399,99 @@ $('ssave').onclick=()=>{
  }catch(e){setStatus('Config belum kebaca. Salin ulang dari Firebase.')}
 };
 $('soff').onclick=()=>{
- try{sync&&sync.unsub&&sync.unsub()}catch(e){}
+ try{sync&&sync.unsub&&sync.unsub();sync&&sync.nunsub&&sync.nunsub()}catch(e){}
  sync=null;try{localStorage.removeItem(SYNC_KEY)}catch(e){}
  showForm(true);setStatus('Sinkron dimatiin. Foto di HP ini tetap ada.');
 };
+/* hati pixel + pesan dari abang */
+const LOVE=['Abang kangen Alika hari ini 💗','Satu foto dari abang, buat obat kangen Alika.','Jarak boleh jauh, tapi kangen abang tetap nyampe.','Makasih ya, Alika, udah nungguin abang.','Hati abang selalu pulang ke Alika.','Senyum Alika itu semangat abang hari ini.','Hari ini abang inget Alika terus.','Semangat belajarnya ya, Alika. Abang doain dari sini.','Abang bangga punya Alika.','Tunggu abang pulang ya, Alika.','Di mana pun abang berada, Alika selalu ada di hati abang.','Makan yang cukup dan jangan lupa istirahat ya, Alika.'];
+let lbag=[];
+function nextLove(){
+ if(notes.length&&Math.random()<0.5)return notes[Math.floor(Math.random()*notes.length)].text;
+ if(!lbag.length)lbag=LOVE.slice().sort(()=>Math.random()-.5);
+ return lbag.pop();
+}
+const HEART=['.##...##.','####.####','#########','#########','.#######.','..#####..','...###...','....#....'];
+const PALS=[['#ff5fa2','#ffc2dc','#d93a85'],['#ff4d6d','#ffb3c1','#c9184a'],['#b48cff','#e4d4ff','#8a5fd6'],['#ff9a8b','#ffd2c9','#e06a5a'],['#7ec8ff','#d0ecff','#4a9fe0'],['#ff7bd0','#ffd0f0','#d44fa8']];
+function pixelHeart(pal){
+ const H=HEART.length,W=HEART[0].length,f=(y,x)=>y>=0&&y<H&&x>=0&&x<W&&HEART[y][x]==='#';
+ let r='';
+ for(let y=-1;y<=H;y++)for(let x=-1;x<=W;x++){
+  let c=null;
+  if(f(y,x)){c=pal[0];if((y===0&&x===1)||(y===1&&(x===0||x===1)))c=pal[1];else if(x>=5&&x+y>=9)c=pal[2]}
+  else{for(let dy=-1;dy<=1&&!c;dy++)for(let dx=-1;dx<=1;dx++){if(f(y+dy,x+dx)){c='var(--line)';break}}}
+  if(c)r+='<rect x="'+(x+1)+'" y="'+(y+1)+'" width="1" height="1" style="fill:'+c+'"/>';
+ }
+ return '<svg viewBox="0 0 '+(W+2)+' '+(H+2)+'" shape-rendering="crispEdges" aria-hidden="true">'+r+'</svg>';
+}
+(function(){
+ const box=$('hearts'),sizes=[48,40,56,44,52,40,48,44];
+ sizes.forEach((w,i)=>{
+  const pal=PALS[i%PALS.length],b=document.createElement('button');
+  b.className='hbtn';b.innerHTML=pixelHeart(pal);
+  b.style.setProperty('--w',w+'px');b.style.setProperty('--d',(i*0.15)+'s');
+  b.setAttribute('aria-label','Hati pixel, tap buat pesan dari abang');
+  b.onclick=()=>{
+   $('lmsg').textContent=nextLove();
+   try{navigator.vibrate&&navigator.vibrate(15)}catch(x){}
+   const r=b.getBoundingClientRect();
+   for(let k=0;k<5;k++){
+    const h=document.createElement('span');h.className='pop';h.innerHTML=pixelHeart(PALS[(i+k)%PALS.length]);
+    h.style.left=(r.left+r.width/2-9)+'px';h.style.top=(r.top+r.height/2-9)+'px';
+    h.style.setProperty('--x',((k-2)*18)+'px');h.style.animationDelay=(k*60)+'ms';
+    document.body.appendChild(h);setTimeout(()=>h.remove(),1300);
+   }
+  };
+  box.appendChild(b);
+ });
+})();
+
+/* kata-kata buatan sendiri */
+let notes=[];
+try{const n=JSON.parse(localStorage.getItem('alika-notes'));if(Array.isArray(n))notes=n.filter(x=>x&&x.id&&x.text)}catch(e){}
+function saveNotes(){try{localStorage.setItem('alika-notes',JSON.stringify(notes))}catch(e){}}
+function renderNotes(){
+ const l=$('nlist');l.innerHTML='';
+ notes.slice().sort((a,b)=>b.ts-a.ts).forEach(n=>{
+  const d=document.createElement('div');d.className='nitem';
+  const t=document.createElement('span');t.textContent=n.text;
+  if(n.by){const sm=document.createElement('small');sm.textContent='dari '+n.by;t.appendChild(sm)}
+  const x=document.createElement('button');x.textContent='✕';x.setAttribute('aria-label','Hapus kata-kata ini');
+  x.onclick=()=>{notes=notes.filter(y=>y.id!==n.id);saveNotes();renderNotes();delNote(n.id)};
+  d.appendChild(t);d.appendChild(x);l.appendChild(d);
+ });
+}
+async function pushNote(n){if(!sync||!sync.ncol)return;try{await sync.fs.setDoc(sync.fs.doc(sync.ncol,n.id),{text:n.text,by:n.by||'',ts:n.ts})}catch(e){}}
+async function delNote(id){if(!sync||!sync.ncol)return;try{await sync.fs.deleteDoc(sync.fs.doc(sync.ncol,id))}catch(e){}}
+function addNote(){
+ const v=$('ntext').value.trim();if(!v)return;
+ const n={id:Date.now().toString(36)+Math.random().toString(36).slice(2,6),text:v.slice(0,140),by:(getSync()||{}).name||'',ts:Date.now()};
+ notes.push(n);saveNotes();renderNotes();pushNote(n);$('ntext').value='';
+ $('lmsg').textContent=n.text;
+}
+$('nbtn').onclick=addNote;
+$('ntext').addEventListener('keydown',e=>{if(e.key==='Enter')addNote()});
+renderNotes();
+
+/* sidebar */
+const PAGES={beranda:'Beranda',album:'Album',recap:'Recap',sinkron:'Sinkron',pengingat:'Pengingat'};
+function closeSide(){$('side').classList.remove('open');$('scrim').hidden=true;$('menu').setAttribute('aria-expanded','false')}
+function openSide(){$('side').classList.add('open');$('scrim').hidden=false;$('menu').setAttribute('aria-expanded','true');const f=$('side').querySelector('[data-go]');if(f)f.focus()}
+function goPage(k){
+ if(!PAGES[k])k='beranda';
+ document.querySelectorAll('.win[data-page]').forEach(w=>{w.hidden=w.dataset.page!==k});
+ document.querySelectorAll('#side [data-go]').forEach(b=>b.classList.toggle('act',b.dataset.go===k));
+ $('ptitle').textContent=PAGES[k];
+ try{localStorage.setItem('alika-page',k)}catch(e){}
+ closeSide();window.scrollTo(0,0);
+}
+$('menu').onclick=()=>$('side').classList.contains('open')?closeSide():openSide();
+$('scrim').onclick=closeSide;
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeSide()});
+document.querySelectorAll('#side [data-go]').forEach(b=>{b.onclick=()=>goPage(b.dataset.go)});
+let startPage='beranda';try{startPage=localStorage.getItem('alika-page')||'beranda'}catch(e){}
+if(window.__magic)startPage='sinkron';
+goPage(startPage);
 (async()=>{db=await openDB();photos=await dbAll();render();scheduleNative();startSync()})();
 </script>
 </body>
