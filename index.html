@@ -116,7 +116,7 @@ dialog img{width:100%;display:block;max-height:60vh;object-fit:contain;backgroun
 <div class="win" data-page="beranda">
  <div class="bar"><span>love.exe</span><span class="dots"><span></span><span></span></span></div>
  <div class="body">
-  <div class="lmsg" id="lmsg" aria-live="polite">Tap hati pixel di bawah, ada pesan dari abang buat Alika 💌</div>
+  <div class="lmsg" id="lmsg" aria-live="polite">Tap hati pixel, nanti muncul kata-kata dari abang buat Alika 💌</div>
   <div class="hearts" id="hearts"></div>
   <div class="nadd">
    <input class="f" id="ntext" maxlength="140" placeholder="Tulis kata-kata, nanti muncul pas hati di-tap" aria-label="Kata-kata baru">
@@ -404,12 +404,12 @@ $('soff').onclick=()=>{
  showForm(true);setStatus('Sinkron dimatiin. Foto di HP ini tetap ada.');
 };
 /* hati pixel + pesan dari abang */
-const LOVE=['Abang kangen Alika hari ini 💗','Satu foto dari abang, buat obat kangen Alika.','Jarak boleh jauh, tapi kangen abang tetap nyampe.','Makasih ya, Alika, udah nungguin abang.','Hati abang selalu pulang ke Alika.','Senyum Alika itu semangat abang hari ini.','Hari ini abang inget Alika terus.','Semangat belajarnya ya, Alika. Abang doain dari sini.','Abang bangga punya Alika.','Tunggu abang pulang ya, Alika.','Di mana pun abang berada, Alika selalu ada di hati abang.','Makan yang cukup dan jangan lupa istirahat ya, Alika.'];
 let lbag=[];
 function nextLove(){
- if(notes.length&&Math.random()<0.5)return notes[Math.floor(Math.random()*notes.length)].text;
- if(!lbag.length)lbag=LOVE.slice().sort(()=>Math.random()-.5);
- return lbag.pop();
+ if(!notes.length)return 'Belum ada kata-kata. Tulis dulu di kolom bawah ya 💌';
+ lbag=lbag.filter(id=>notes.some(n=>n.id===id));
+ if(!lbag.length)lbag=notes.map(n=>n.id).sort(()=>Math.random()-.5);
+ const id=lbag.pop();return notes.find(n=>n.id===id).text;
 }
 const HEART=['.##...##.','####.####','#########','#########','.#######.','..#####..','...###...','....#....'];
 const PALS=[['#ff5fa2','#ffc2dc','#d93a85'],['#ff4d6d','#ffb3c1','#c9184a'],['#b48cff','#e4d4ff','#8a5fd6'],['#ff9a8b','#ffd2c9','#e06a5a'],['#7ec8ff','#d0ecff','#4a9fe0'],['#ff7bd0','#ffd0f0','#d44fa8']];
@@ -466,7 +466,7 @@ async function delNote(id){if(!sync||!sync.ncol)return;try{await sync.fs.deleteD
 function addNote(){
  const v=$('ntext').value.trim();if(!v)return;
  const n={id:Date.now().toString(36)+Math.random().toString(36).slice(2,6),text:v.slice(0,140),by:(getSync()||{}).name||'',ts:Date.now()};
- notes.push(n);saveNotes();renderNotes();pushNote(n);$('ntext').value='';
+ notes.push(n);lbag.push(n.id);saveNotes();renderNotes();pushNote(n);$('ntext').value='';
  $('lmsg').textContent=n.text;
 }
 $('nbtn').onclick=addNote;
