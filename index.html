@@ -154,6 +154,12 @@ dialog img{width:100%;display:block;max-height:60vh;object-fit:contain;backgroun
    <input class="f" id="nm" placeholder="Nama kamu (abang / Alika)">
    <button class="btn main" id="ssave">Sambungin</button>
   </div>
+  <div id="loginform" hidden>
+   <input class="f" id="lem" type="email" placeholder="Email" autocomplete="username" autocapitalize="none">
+   <input class="f" id="lpw" type="password" placeholder="Password" autocomplete="current-password">
+   <button class="btn main" id="lgo">🔐 Masuk</button>
+  </div>
+  <button class="btn" id="lout" hidden>Keluar akun</button>
   <button class="btn mint" id="slink" hidden>🔗 Salin link buat Alika</button>
   <button class="btn" id="soff" hidden>Putus sinkron</button>
   <p class="small">Pakai kode album yang sama di HP abang dan HP Alika biar fotonya kebagi.</p>
@@ -332,7 +338,8 @@ $('sclose').onclick=()=>$('show').close();
 let sync=null;const SYNC_KEY='alika-sync';
 function getSync(){try{return JSON.parse(localStorage.getItem(SYNC_KEY))}catch(e){return null}}
 function setStatus(t){$('syncs').textContent=t}
-function showForm(on){$('syncform').hidden=!on;$('soff').hidden=on;$('slink').hidden=on}
+function showForm(on){$('syncform').hidden=!on;$('soff').hidden=on;$('slink').hidden=on;if(on){$('loginform').hidden=true;$('lout').hidden=true}}
+function showLogin(on){$('loginform').hidden=!on;$('lout').hidden=on}
 function parseCfg(txt){
  const m=txt.match(/\{[\s\S]*\}/);if(!m)throw 0;
  const j=m[0].replace(/([{,]\s*)([A-Za-z0-9_]+)\s*:/g,'$1"$2":').replace(/,\s*\}/g,'}');
@@ -355,41 +362,67 @@ $('slink').onclick=async()=>{
  }catch(e){}
 })();
 async function pushRemote(p){
- if(!sync)return;
+ if(!sync||!sync.col)return;
  if(p.data.length>950000){setStatus('Satu foto terlalu besar buat disinkron.');return}
  try{await sync.fs.setDoc(sync.fs.doc(sync.col,String(p.id)),{ts:p.ts,data:p.data,by:p.by||''})}catch(e){setStatus('Gagal kirim: '+(e.code||e.message))}
 }
-async function delRemote(id){if(!sync)return;try{await sync.fs.deleteDoc(sync.fs.doc(sync.col,String(id)))}catch(e){}}
+async function delRemote(id){if(!sync||!sync.col)return;try{await sync.fs.deleteDoc(sync.fs.doc(sync.col,String(id)))}catch(e){}}
 async function startSync(){
  const st=getSync();if(!st){showForm(true);return}
+ if(sync&&sync.started)return;
  showForm(false);setStatus('Nyambung…');
  try{
-  const [a,fs]=await Promise.all([import('https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js'),import('https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js')]);
-  const fdb=fs.getFirestore(a.initializeApp(st.cfg));
-  const col=fs.collection(fdb,'albums',st.code,'photos');
-  sync={fs,col,unsub:null};let first=true;
-  sync.unsub=fs.onSnapshot(col,snap=>{
-   snap.docChanges().forEach(ch=>{
-    const id=ch.doc.id,d=ch.doc.data();
-    if(ch.type==='removed'){const p=photos.find(x=>String(x.id)===id);if(p){photos=photos.filter(x=>x!==p);dbDel(p.id)}return}
-    if(!photos.some(x=>String(x.id)===id)){const p={id,ts:d.ts,data:d.data,by:d.by||''};photos.push(p);dbPut(p)}
-   });
-   if(first){first=false;const ids=new Set(snap.docs.map(x=>x.id));photos.filter(p=>!ids.has(String(p.id))).forEach(pushRemote)}
-   render();setStatus('✅ Tersambung · '+photos.length+' foto');
-  },err=>setStatus('Gagal sambung: '+(err.code||err.message)));
-  sync.ncol=fs.collection(fdb,'albums',st.code,'notes');let nfirst=true;
-  sync.nunsub=fs.onSnapshot(sync.ncol,snap=>{
-   let ch=false;$('nstat').textContent='';
-   snap.docChanges().forEach(c=>{
-    const id=c.doc.id,d=c.doc.data();
-    if(c.type==='removed'){const k=notes.length;notes=notes.filter(x=>x.id!==id);if(notes.length!==k)ch=true;return}
-    if(!notes.some(x=>x.id===id)){notes.push({id,text:String(d.text||'').slice(0,140),by:d.by||'',ts:d.ts||0});ch=true}
-   });
-   if(nfirst){nfirst=false;const ids=new Set(snap.docs.map(x=>x.id));notes.filter(n=>!ids.has(n.id)).forEach(pushNote)}
-   if(ch){saveNotes();lbag=[];renderNotes()}
-  },err=>{$('nstat').textContent='Kata-kata belum ke-sinkron. Update Rules Firestore dulu ('+(err.code||'error')+').'});
+  const B='https://www.gstatic.com/firebasejs/10.14.1/';
+  const [a,fs,au]=await Promise.all([import(B+'firebase-app.js'),import(B+'firebase-firestore.js'),import(B+'firebase-auth.js')]);
+  const app=a.initializeApp(st.cfg),fdb=fs.getFirestore(app),auth=au.getAuth(app);
+  sync={fs,au,auth,fdb,st,started:true,unsubs:[],col:null,ncol:null};
+  au.onAuthStateChanged(auth,user=>{
+   if(!sync)return;
+   if(user){showLogin(false);attachData()}
+   else{detachData();showLogin(true);setStatus('Masuk dulu pakai email dan password.')}
+  });
  }catch(e){setStatus('Gagal sambung. Cek internet atau config-nya.');showForm(true)}
 }
+function detachData(){
+ if(!sync)return;
+ sync.unsubs.forEach(f=>{try{f()}catch(e){}});sync.unsubs=[];sync.col=null;sync.ncol=null;
+}
+function attachData(){
+ const {fs,fdb,st}=sync;detachData();
+ sync.col=fs.collection(fdb,'albums',st.code,'photos');let first=true;
+ sync.unsubs.push(fs.onSnapshot(sync.col,snap=>{
+  if(!sync)return;
+  snap.docChanges().forEach(ch=>{
+   const id=ch.doc.id,d=ch.doc.data();
+   if(ch.type==='removed'){const p=photos.find(x=>String(x.id)===id);if(p){photos=photos.filter(x=>x!==p);dbDel(p.id)}return}
+   if(!photos.some(x=>String(x.id)===id)){const p={id,ts:d.ts,data:d.data,by:d.by||''};photos.push(p);dbPut(p)}
+  });
+  if(first){first=false;const ids=new Set(snap.docs.map(x=>x.id));photos.filter(p=>!ids.has(String(p.id))).forEach(pushRemote)}
+  render();setStatus('✅ Masuk · '+photos.length+' foto');
+ },err=>setStatus(err.code==='permission-denied'?'Akun ini belum diizinkan. Cek email di Rules Firestore.':'Gagal sambung: '+(err.code||err.message))));
+ sync.ncol=fs.collection(fdb,'albums',st.code,'notes');let nfirst=true;
+ sync.unsubs.push(fs.onSnapshot(sync.ncol,snap=>{
+  let ch=false;$('nstat').textContent='';
+  snap.docChanges().forEach(c=>{
+   const id=c.doc.id,d=c.doc.data();
+   if(c.type==='removed'){const k=notes.length;notes=notes.filter(x=>x.id!==id);if(notes.length!==k)ch=true;return}
+   if(!notes.some(x=>x.id===id)){notes.push({id,text:String(d.text||'').slice(0,140),by:d.by||'',ts:d.ts||0});ch=true}
+  });
+  if(nfirst){nfirst=false;const ids=new Set(snap.docs.map(x=>x.id));notes.filter(n=>!ids.has(n.id)).forEach(pushNote)}
+  if(ch){saveNotes();lbag=[];renderNotes()}
+ },err=>{$('nstat').textContent='Kata-kata belum ke-sinkron ('+(err.code||'error')+').'}));
+}
+function loginErr(c){
+ return ({'auth/invalid-credential':'Email atau password salah.','auth/invalid-email':'Format email salah.','auth/too-many-requests':'Kebanyakan percobaan. Tunggu sebentar.','auth/network-request-failed':'Nggak ada internet.','auth/operation-not-allowed':'Login email/password belum diaktifin di Firebase.'})[c]||('Gagal masuk ('+c+')');
+}
+async function doLogin(){
+ if(!sync||!sync.auth)return;
+ try{setStatus('Masuk…');await sync.au.signInWithEmailAndPassword(sync.auth,$('lem').value.trim(),$('lpw').value);$('lpw').value=''}
+ catch(e){setStatus(loginErr(e.code))}
+}
+$('lgo').onclick=doLogin;
+$('lpw').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin()});
+$('lout').onclick=()=>{if(sync&&sync.au)sync.au.signOut(sync.auth)};
 $('ssave').onclick=()=>{
  try{
   const cfg=parseCfg($('cfg').value),code=$('code').value.trim();
@@ -399,7 +432,7 @@ $('ssave').onclick=()=>{
  }catch(e){setStatus('Config belum kebaca. Salin ulang dari Firebase.')}
 };
 $('soff').onclick=()=>{
- try{sync&&sync.unsub&&sync.unsub();sync&&sync.nunsub&&sync.nunsub()}catch(e){}
+ try{detachData();sync&&sync.au&&sync.au.signOut(sync.auth)}catch(e){}
  sync=null;try{localStorage.removeItem(SYNC_KEY)}catch(e){}
  showForm(true);setStatus('Sinkron dimatiin. Foto di HP ini tetap ada.');
 };
