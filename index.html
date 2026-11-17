@@ -43,6 +43,18 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--ink);outline-of
 .times input{width:100%;font:600 1.05rem 'Pixelify Sans',sans-serif;padding:8px;border:3px solid var(--line);border-radius:8px;background:var(--win);color:var(--ink)}
 .f{width:100%;margin-top:8px;font:600 1rem 'Pixelify Sans',sans-serif;padding:8px;border:3px solid var(--line);border-radius:8px;background:var(--win);color:var(--ink)}
 textarea.f{min-height:90px;resize:vertical}
+.rhead{display:flex;align-items:center;justify-content:space-between;font-weight:700;font-size:1.2rem;margin-bottom:10px}
+.rhead button{width:44px;height:44px;border:3px solid var(--line);background:var(--lilac);color:var(--ink);border-radius:10px;font:700 1.1rem 'Pixelify Sans',sans-serif;cursor:pointer}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px}
+.stat{border:3px solid var(--line);border-radius:10px;padding:8px 4px;text-align:center;background:var(--win);font-size:.8rem}
+.stat b{display:block;font-size:1.5rem}
+.cal{display:grid;grid-template-columns:repeat(7,1fr);gap:5px}
+.dn{text-align:center;font-size:.75rem;opacity:.8}
+.cd{aspect-ratio:1;border:2px solid var(--line);border-radius:8px;background:var(--win);color:var(--ink);font:600 .85rem 'Pixelify Sans',sans-serif;cursor:pointer;padding:0}
+.cd[data-n="1"]{background:#ffc2dc}.cd[data-n="2"]{background:#ff9cc7}.cd[data-n="3"]{background:#ff77b2}.cd[data-n="4"]{background:var(--pink);color:#fff}
+.cd[data-n="1"],.cd[data-n="2"],.cd[data-n="3"]{color:#5c0f36}
+.cd.sel{outline:3px solid var(--ink);outline-offset:1px}
+.cd:disabled{opacity:.4;cursor:default}
 .small{font-size:.85rem;opacity:.85;margin:10px 0 0}
 dialog{border:3px solid var(--line);border-radius:12px;background:var(--win);color:var(--ink);padding:0;max-width:92vw;width:380px;box-shadow:6px 6px 0 var(--line);font-family:'Pixelify Sans',sans-serif}
 dialog::backdrop{background:rgba(122,26,74,.55)}
@@ -69,6 +81,18 @@ dialog img{width:100%;display:block;max-height:60vh;object-fit:contain;backgroun
 <div class="win">
  <div class="bar"><span>album_alika</span><span class="dots"><span></span><span></span></span></div>
  <div class="body" id="album"></div>
+</div>
+
+<div class="win">
+ <div class="bar"><span>recap_alika</span><span class="dots"><span></span><span></span></span></div>
+ <div class="body">
+  <div class="rhead"><button id="rprev" aria-label="Bulan sebelumnya">◀</button><span id="rmonth"></span><button id="rnext" aria-label="Bulan berikutnya">▶</button></div>
+  <div class="stats" id="rstats"></div>
+  <div class="cal" id="rcal"></div>
+  <div class="day" id="rday" style="margin-top:14px"></div>
+  <div class="grid" id="rgrid"></div>
+  <button class="btn mint" id="rplay">▶ Slideshow bulan ini</button>
+ </div>
 </div>
 
 <div class="win">
@@ -101,6 +125,11 @@ dialog img{width:100%;display:block;max-height:60vh;object-fit:contain;backgroun
 <dialog id="view">
  <img id="big" alt="Foto">
  <div class="row"><button class="btn" id="close">Tutup</button><button class="btn main" id="del">Hapus</button></div>
+</dialog>
+
+<dialog id="show">
+ <img id="simg" alt="Slideshow">
+ <div class="row"><span id="scap" style="flex:1;align-self:center"></span><button class="btn" id="sclose">Tutup</button></div>
 </dialog>
 
 <dialog id="remind">
@@ -137,6 +166,7 @@ function lines(n){
  return ['Hari ini baru '+n+' foto. Alika masih nungguin…','Tinggal '+(GOAL-n)+' foto lagi ya bang 🥺'];
 }
 function render(){
+ renderRecap();
  const n=todayCount(),l=lines(n);
  $('msg').textContent=l[1];$('status').textContent=n+' / '+GOAL+' foto hari ini';
  $('slots').innerHTML='';for(let i=0;i<GOAL;i++){const s=document.createElement('div');s.className='slot'+(i<n?' on':'');s.textContent=i<n?'💗':'🤍';$('slots').appendChild(s)}
@@ -198,6 +228,57 @@ async function scheduleNative(){
 }
 if('serviceWorker' in navigator&&location.protocol.startsWith('http')){try{navigator.serviceWorker.register('sw.js')}catch(e){}}
 
+/* recap bulanan */
+let rm=new Date();rm=new Date(rm.getFullYear(),rm.getMonth(),1);let rsel=null,stimer=null;
+const fmtDay=ts=>new Date(ts).toLocaleDateString('id-ID',{weekday:'long',day:'numeric',month:'long'});
+function monthPhotos(){const y=rm.getFullYear(),m=rm.getMonth();return photos.filter(p=>{const d=new Date(p.ts);return d.getFullYear()===y&&d.getMonth()===m}).sort((a,b)=>a.ts-b.ts)}
+function streakCalc(){
+ const days=new Set(photos.map(p=>dayKey(p.ts)));let n=0,d=new Date();
+ if(!days.has(dayKey(d.getTime())))d.setDate(d.getDate()-1);
+ while(days.has(dayKey(d.getTime()))){n++;d.setDate(d.getDate()-1)}
+ return n;
+}
+function pol(p,i){
+ const d=document.createElement('button');d.className='pol';d.style.setProperty('--r',(i%2?1.5:-1.5)+'deg');d.style.font='inherit';
+ d.innerHTML='<img alt="Foto abang">';
+ d.appendChild(document.createTextNode(new Date(p.ts).toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit'})+(p.by?' · '+p.by:'')));
+ d.querySelector('img').src=p.data;d.onclick=()=>{openId=p.id;$('big').src=p.data;$('view').showModal()};
+ return d;
+}
+function renderRecap(){
+ const y=rm.getFullYear(),m=rm.getMonth(),mp=monthPhotos();
+ $('rmonth').textContent=rm.toLocaleDateString('id-ID',{month:'long',year:'numeric'});
+ const per={};mp.forEach(p=>{const k=dayKey(p.ts);per[k]=(per[k]||0)+1});
+ const full=Object.values(per).filter(v=>v>=GOAL).length;
+ $('rstats').innerHTML='';
+ [[mp.length,'foto'],[full,'hari 4/4'],[streakCalc(),'hari beruntun']].forEach(([a,b])=>{
+  const e=document.createElement('div');e.className='stat';e.innerHTML='<b></b>'+b;e.firstChild.textContent=a;$('rstats').appendChild(e);
+ });
+ const cal=$('rcal');cal.innerHTML='';
+ ['Mg','Sn','Sl','Rb','Km','Jm','Sb'].forEach(x=>{const e=document.createElement('div');e.className='dn';e.textContent=x;cal.appendChild(e)});
+ const first=new Date(y,m,1).getDay(),dim=new Date(y,m+1,0).getDate();
+ for(let i=0;i<first;i++)cal.appendChild(document.createElement('div'));
+ for(let d=1;d<=dim;d++){
+  const k=y+'-'+String(m+1).padStart(2,'0')+'-'+String(d).padStart(2,'0'),c=per[k]||0,n=Math.min(c,GOAL);
+  const b=document.createElement('button');b.className='cd'+(rsel===k?' sel':'');b.textContent=d;b.dataset.n=n;
+  b.setAttribute('aria-label',d+' '+rm.toLocaleDateString('id-ID',{month:'long'})+', '+c+' foto');
+  b.disabled=!c;b.onclick=()=>{rsel=k;renderRecap()};cal.appendChild(b);
+ }
+ const dp=rsel?mp.filter(p=>dayKey(p.ts)===rsel):[];
+ $('rday').textContent=dp.length?fmtDay(dp[0].ts)+' · '+dp.length+' foto':(mp.length?'Tap tanggal yang berwarna buat lihat fotonya.':'Belum ada foto bulan ini.');
+ const g=$('rgrid');g.innerHTML='';dp.forEach((p,i)=>g.appendChild(pol(p,i)));
+ $('rplay').hidden=!mp.length;
+}
+$('rprev').onclick=()=>{rm=new Date(rm.getFullYear(),rm.getMonth()-1,1);rsel=null;renderRecap()};
+$('rnext').onclick=()=>{rm=new Date(rm.getFullYear(),rm.getMonth()+1,1);rsel=null;renderRecap()};
+$('rplay').onclick=()=>{
+ const mp=monthPhotos();if(!mp.length)return;let i=0;
+ const step=()=>{const p=mp[i];$('simg').src=p.data;$('scap').textContent=fmtDay(p.ts)+(p.by?' · '+p.by:'')+' ('+(i+1)+'/'+mp.length+')';i=(i+1)%mp.length};
+ step();$('show').showModal();clearInterval(stimer);stimer=setInterval(step,2500);
+};
+$('show').addEventListener('close',()=>clearInterval(stimer));
+$('sclose').onclick=()=>$('show').close();
+
 /* sinkron online (Firebase Firestore) */
 let sync=null;const SYNC_KEY='alika-sync';
 function getSync(){try{return JSON.parse(localStorage.getItem(SYNC_KEY))}catch(e){return null}}
@@ -212,14 +293,14 @@ function b64e(o){return btoa(unescape(encodeURIComponent(JSON.stringify(o)))).re
 function b64d(x){x=x.replace(/-/g,'+').replace(/_/g,'/');while(x.length%4)x+='=';return JSON.parse(decodeURIComponent(escape(atob(x))))}
 $('slink').onclick=async()=>{
  const st=getSync();if(!st)return;
- const url=location.origin+location.pathname+'#s='+b64e({cfg:st.cfg,code:st.code});
+ const url=location.origin+location.pathname+'#s='+[st.cfg.apiKey,st.cfg.projectId,st.code].join('.');
  try{await navigator.clipboard.writeText(url);setStatus('✅ Link disalin. Kirim ke Alika lewat chat pribadi.')}catch(e){prompt('Salin link ini:',url)}
 };
 /* link ajaib: buka #s=... otomatis ngisi form */
 (function(){
  const m=location.hash.match(/^#s=(.+)$/);if(!m)return;
  try{
-  const o=b64d(m[1]);
+  let o;const v=m[1];if(v.includes('.')){const q=v.split('.');o={cfg:{apiKey:q[0],projectId:q[1],authDomain:q[1]+'.firebaseapp.com'},code:q[2]}}else o=b64d(v);
   if(!getSync()&&o.cfg&&o.code){$('cfg').value=JSON.stringify(o.cfg);$('code').value=o.code;$('nm').value='Alika';setStatus('Link kebaca! Cek namanya, lalu tap Sambungin.')}
   history.replaceState(null,'',location.pathname+location.search);
  }catch(e){}
