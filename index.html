@@ -41,6 +41,8 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--ink);outline-of
 .empty{text-align:center;padding:10px 4px}
 .times{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}
 .times input{width:100%;font:600 1.05rem 'Pixelify Sans',sans-serif;padding:8px;border:3px solid var(--line);border-radius:8px;background:var(--win);color:var(--ink)}
+.f{width:100%;margin-top:8px;font:600 1rem 'Pixelify Sans',sans-serif;padding:8px;border:3px solid var(--line);border-radius:8px;background:var(--win);color:var(--ink)}
+textarea.f{min-height:90px;resize:vertical}
 .small{font-size:.85rem;opacity:.85;margin:10px 0 0}
 dialog{border:3px solid var(--line);border-radius:12px;background:var(--win);color:var(--ink);padding:0;max-width:92vw;width:380px;box-shadow:6px 6px 0 var(--line);font-family:'Pixelify Sans',sans-serif}
 dialog::backdrop{background:rgba(122,26,74,.55)}
@@ -67,6 +69,21 @@ dialog img{width:100%;display:block;max-height:60vh;object-fit:contain;backgroun
 <div class="win">
  <div class="bar"><span>album_alika</span><span class="dots"><span></span><span></span></span></div>
  <div class="body" id="album"></div>
+</div>
+
+<div class="win">
+ <div class="bar"><span>sinkron_online</span><span class="dots"><span></span><span></span></span></div>
+ <div class="body">
+  <div class="status" id="syncs">Belum tersambung.</div>
+  <div id="syncform">
+   <textarea class="f" id="cfg" placeholder="Tempel firebaseConfig dari Firebase di sini"></textarea>
+   <input class="f" id="code" placeholder="Kode album rahasia (min 8 huruf/angka)" autocapitalize="none">
+   <input class="f" id="nm" placeholder="Nama kamu (abang / Alika)">
+   <button class="btn main" id="ssave">Sambungin</button>
+  </div>
+  <button class="btn" id="soff" hidden>Putus sinkron</button>
+  <p class="small">Pakai kode album yang sama di HP abang dan HP Alika biar fotonya kebagi.</p>
+ </div>
 </div>
 
 <div class="win">
@@ -131,7 +148,7 @@ function render(){
   a.appendChild(h);
   const g=document.createElement('div');g.className='grid';
   groups[k].forEach((p,i)=>{const d=document.createElement('button');d.className='pol';d.style.setProperty('--r',(i%2?1.5:-1.5)+'deg');d.style.font='inherit';
-   d.innerHTML='<img alt="Foto abang">'+new Date(p.ts).toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit'});
+   d.innerHTML='<img alt="Foto abang">';d.appendChild(document.createTextNode(new Date(p.ts).toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit'})+(p.by?' · '+p.by:'')));
    d.querySelector('img').src=p.data;d.onclick=()=>{openId=p.id;$('big').src=p.data;$('view').showModal()};g.appendChild(d)});
   a.appendChild(g);
  });
@@ -140,11 +157,11 @@ function render(){
 $('add').onclick=()=>$('file').click();
 $('file').onchange=async e=>{
  const files=[...e.target.files];$('add').textContent='⏳ Nyimpen…';
- for(const f of files){const data=await resize(f);if(!data)continue;const p={id:Date.now()+Math.random(),ts:Date.now(),data};photos.push(p);dbPut(p)}
+ for(const f of files){const data=await resize(f);if(!data)continue;const p={id:Date.now()+Math.random(),ts:Date.now(),data,by:(getSync()||{}).name||''};photos.push(p);dbPut(p);pushRemote(p)}
  $('add').textContent='📸 Tambah foto';e.target.value='';render();
 };
 $('close').onclick=()=>$('view').close();
-$('del').onclick=()=>{if(confirm('Hapus foto ini?')){photos=photos.filter(p=>p.id!==openId);dbDel(openId);$('view').close();render()}};
+$('del').onclick=()=>{if(confirm('Hapus foto ini?')){photos=photos.filter(p=>p.id!==openId);dbDel(openId);delRemote(openId);$('view').close();render()}};
 
 /* reminder times */
 times.forEach((t,i)=>{const inp=document.createElement('input');inp.type='time';inp.value=t;inp.setAttribute('aria-label','Pengingat '+(i+1));inp.onchange=()=>{times[i]=inp.value;saveTimes();scheduleNative()};$('times').appendChild(inp)});
@@ -179,7 +196,56 @@ async function scheduleNative(){
  }catch(e){}
 }
 if('serviceWorker' in navigator&&location.protocol.startsWith('http')){try{navigator.serviceWorker.register('sw.js')}catch(e){}}
-(async()=>{db=await openDB();photos=await dbAll();render();scheduleNative()})();
+
+/* sinkron online (Firebase Firestore) */
+let sync=null;const SYNC_KEY='alika-sync';
+function getSync(){try{return JSON.parse(localStorage.getItem(SYNC_KEY))}catch(e){return null}}
+function setStatus(t){$('syncs').textContent=t}
+function showForm(on){$('syncform').hidden=!on;$('soff').hidden=on}
+function parseCfg(txt){
+ const m=txt.match(/\{[\s\S]*\}/);if(!m)throw 0;
+ const j=m[0].replace(/([{,]\s*)([A-Za-z0-9_]+)\s*:/g,'$1"$2":').replace(/,\s*\}/g,'}');
+ const c=JSON.parse(j);if(!c.projectId||!c.apiKey)throw 0;return c;
+}
+async function pushRemote(p){
+ if(!sync)return;
+ if(p.data.length>950000){setStatus('Satu foto terlalu besar buat disinkron.');return}
+ try{await sync.fs.setDoc(sync.fs.doc(sync.col,String(p.id)),{ts:p.ts,data:p.data,by:p.by||''})}catch(e){setStatus('Gagal kirim: '+(e.code||e.message))}
+}
+async function delRemote(id){if(!sync)return;try{await sync.fs.deleteDoc(sync.fs.doc(sync.col,String(id)))}catch(e){}}
+async function startSync(){
+ const st=getSync();if(!st){showForm(true);return}
+ showForm(false);setStatus('Nyambung…');
+ try{
+  const [a,fs]=await Promise.all([import('https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js'),import('https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js')]);
+  const fdb=fs.getFirestore(a.initializeApp(st.cfg));
+  const col=fs.collection(fdb,'albums',st.code,'photos');
+  sync={fs,col,unsub:null};let first=true;
+  sync.unsub=fs.onSnapshot(col,snap=>{
+   snap.docChanges().forEach(ch=>{
+    const id=ch.doc.id,d=ch.doc.data();
+    if(ch.type==='removed'){const p=photos.find(x=>String(x.id)===id);if(p){photos=photos.filter(x=>x!==p);dbDel(p.id)}return}
+    if(!photos.some(x=>String(x.id)===id)){const p={id,ts:d.ts,data:d.data,by:d.by||''};photos.push(p);dbPut(p)}
+   });
+   if(first){first=false;const ids=new Set(snap.docs.map(x=>x.id));photos.filter(p=>!ids.has(String(p.id))).forEach(pushRemote)}
+   render();setStatus('✅ Tersambung · '+photos.length+' foto');
+  },err=>setStatus('Gagal sambung: '+(err.code||err.message)));
+ }catch(e){setStatus('Gagal sambung. Cek internet atau config-nya.');showForm(true)}
+}
+$('ssave').onclick=()=>{
+ try{
+  const cfg=parseCfg($('cfg').value),code=$('code').value.trim();
+  if(!/^[A-Za-z0-9_-]{8,}$/.test(code)){setStatus('Kode minimal 8 karakter, cuma huruf, angka, - atau _.');return}
+  localStorage.setItem(SYNC_KEY,JSON.stringify({cfg,code,name:$('nm').value.trim()}));
+  startSync();
+ }catch(e){setStatus('Config belum kebaca. Salin ulang dari Firebase.')}
+};
+$('soff').onclick=()=>{
+ try{sync&&sync.unsub&&sync.unsub()}catch(e){}
+ sync=null;try{localStorage.removeItem(SYNC_KEY)}catch(e){}
+ showForm(true);setStatus('Sinkron dimatiin. Foto di HP ini tetap ada.');
+};
+(async()=>{db=await openDB();photos=await dbAll();render();scheduleNative();startSync()})();
 </script>
 </body>
 </html>
