@@ -155,11 +155,13 @@ dialog img{width:100%;display:block;max-height:60vh;object-fit:contain;backgroun
    <button class="btn main" id="ssave">Sambungin</button>
   </div>
   <div id="loginform" hidden>
-   <input class="f" id="lem" type="email" placeholder="Email" autocomplete="username" autocapitalize="none">
+   <input class="f" id="lem" type="text" placeholder="Username (atau email)" aria-label="Username" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false">
    <input class="f" id="lpw" type="password" placeholder="Password" autocomplete="current-password">
+   <label class="small" style="display:block;margin:8px 0"><input type="checkbox" id="lpub"> Komputer umum (jangan ingat login)</label>
    <button class="btn main" id="lgo">🔐 Masuk</button>
   </div>
   <button class="btn" id="lout" hidden>Keluar akun</button>
+  <button class="btn" id="lwipe" hidden>🧹 Keluar dan lupain perangkat ini</button>
   <button class="btn mint" id="slink" hidden>🔗 Salin link buat Alika</button>
   <button class="btn" id="soff" hidden>Putus sinkron</button>
   <p class="small">Pakai kode album yang sama di HP abang dan HP Alika biar fotonya kebagi.</p>
@@ -196,7 +198,8 @@ dialog img{width:100%;display:block;max-height:60vh;object-fit:contain;backgroun
 <script>
 const $=id=>document.getElementById(id);
 const GOAL=4;
-let photos=[],db=null,openId=null;
+let photos=[],db=null,openId=null,locked=false;
+const vp=()=>locked?[]:photos;
 
 /* storage: IndexedDB for photos, localStorage for times (both guarded) */
 function openDB(){return new Promise(res=>{try{const r=indexedDB.open('alika',1);r.onupgradeneeded=()=>r.result.createObjectStore('p',{keyPath:'id'});r.onsuccess=()=>res(r.result);r.onerror=()=>res(null)}catch(e){res(null)}})}
@@ -210,7 +213,7 @@ try{const t=JSON.parse(localStorage.getItem('alika-times'));if(Array.isArray(t)&
 function saveTimes(){try{localStorage.setItem('alika-times',JSON.stringify(times))}catch(e){}}
 
 const dayKey=ts=>{const d=new Date(ts);return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')};
-const todayCount=()=>photos.filter(p=>dayKey(p.ts)===dayKey(Date.now())).length;
+const todayCount=()=>vp().filter(p=>dayKey(p.ts)===dayKey(Date.now())).length;
 
 function resize(file){return new Promise(res=>{const u=URL.createObjectURL(file),i=new Image();
  i.onload=()=>{const m=1000,s=Math.min(1,m/Math.max(i.width,i.height)),c=document.createElement('canvas');c.width=Math.round(i.width*s);c.height=Math.round(i.height*s);c.getContext('2d').drawImage(i,0,0,c.width,c.height);URL.revokeObjectURL(u);res(c.toDataURL('image/jpeg',.8))};
@@ -226,6 +229,7 @@ function render(){
  $('msg').textContent=l[1];$('status').textContent=n+' / '+GOAL+' foto hari ini';
  $('slots').innerHTML='';for(let i=0;i<GOAL;i++){const s=document.createElement('div');s.className='slot'+(i<n?' on':'');s.textContent=i<n?'💗':'🤍';$('slots').appendChild(s)}
  const a=$('album');a.innerHTML='';
+ if(locked){a.innerHTML='<div class="empty">🔒 Masuk dulu di menu Sinkron buat lihat album.</div>';return}
  if(!photos.length){a.innerHTML='<div class="empty">Belum ada foto. Alika nungguin lho 🥺</div>';return}
  const groups={};photos.slice().sort((x,y)=>y.ts-x.ts).forEach(p=>{(groups[dayKey(p.ts)]=groups[dayKey(p.ts)]||[]).push(p)});
  Object.keys(groups).forEach(k=>{
@@ -286,9 +290,9 @@ if('serviceWorker' in navigator&&location.protocol.startsWith('http')){try{navig
 /* recap bulanan */
 let rm=new Date();rm=new Date(rm.getFullYear(),rm.getMonth(),1);let rsel=null,stimer=null;
 const fmtDay=ts=>new Date(ts).toLocaleDateString('id-ID',{weekday:'long',day:'numeric',month:'long'});
-function monthPhotos(){const y=rm.getFullYear(),m=rm.getMonth();return photos.filter(p=>{const d=new Date(p.ts);return d.getFullYear()===y&&d.getMonth()===m}).sort((a,b)=>a.ts-b.ts)}
+function monthPhotos(){const y=rm.getFullYear(),m=rm.getMonth();return vp().filter(p=>{const d=new Date(p.ts);return d.getFullYear()===y&&d.getMonth()===m}).sort((a,b)=>a.ts-b.ts)}
 function streakCalc(){
- const days=new Set(photos.map(p=>dayKey(p.ts)));let n=0,d=new Date();
+ const days=new Set(vp().map(p=>dayKey(p.ts)));let n=0,d=new Date();
  if(!days.has(dayKey(d.getTime())))d.setDate(d.getDate()-1);
  while(days.has(dayKey(d.getTime()))){n++;d.setDate(d.getDate()-1)}
  return n;
@@ -338,8 +342,8 @@ $('sclose').onclick=()=>$('show').close();
 let sync=null;const SYNC_KEY='alika-sync';
 function getSync(){try{return JSON.parse(localStorage.getItem(SYNC_KEY))}catch(e){return null}}
 function setStatus(t){$('syncs').textContent=t}
-function showForm(on){$('syncform').hidden=!on;$('soff').hidden=on;$('slink').hidden=on;if(on){$('loginform').hidden=true;$('lout').hidden=true}}
-function showLogin(on){$('loginform').hidden=!on;$('lout').hidden=on}
+function showForm(on){$('syncform').hidden=!on;$('soff').hidden=on;$('slink').hidden=on;if(on){$('loginform').hidden=true;$('lout').hidden=true;$('lwipe').hidden=true}}
+function showLogin(on){$('loginform').hidden=!on;$('lout').hidden=on;$('lwipe').hidden=on}
 function parseCfg(txt){
  const m=txt.match(/\{[\s\S]*\}/);if(!m)throw 0;
  const j=m[0].replace(/([{,]\s*)([A-Za-z0-9_]+)\s*:/g,'$1"$2":').replace(/,\s*\}/g,'}');
@@ -378,8 +382,8 @@ async function startSync(){
   sync={fs,au,auth,fdb,st,started:true,unsubs:[],col:null,ncol:null};
   au.onAuthStateChanged(auth,user=>{
    if(!sync)return;
-   if(user){showLogin(false);attachData()}
-   else{detachData();showLogin(true);setStatus('Masuk dulu pakai email dan password.')}
+   if(user){locked=false;renderNotes();const who=whoAmI(user);sync.who=who;if(!st.name){st.name=who;try{localStorage.setItem(SYNC_KEY,JSON.stringify(st))}catch(e){}}showLogin(false);attachData()}
+   else{detachData();locked=true;render();renderNotes();showLogin(true);setStatus('Masuk dulu pakai username dan password.')}
   });
  }catch(e){setStatus('Gagal sambung. Cek internet atau config-nya.');showForm(true)}
 }
@@ -398,7 +402,7 @@ function attachData(){
    if(!photos.some(x=>String(x.id)===id)){const p={id,ts:d.ts,data:d.data,by:d.by||''};photos.push(p);dbPut(p)}
   });
   if(first){first=false;const ids=new Set(snap.docs.map(x=>x.id));photos.filter(p=>!ids.has(String(p.id))).forEach(pushRemote)}
-  render();setStatus('✅ Masuk · '+photos.length+' foto');
+  render();setStatus('✅ Masuk sebagai '+(sync.who||'')+' · '+photos.length+' foto');
  },err=>setStatus(err.code==='permission-denied'?'Akun ini belum diizinkan. Cek email di Rules Firestore.':'Gagal sambung: '+(err.code||err.message))));
  sync.ncol=fs.collection(fdb,'albums',st.code,'notes');let nfirst=true;
  sync.unsubs.push(fs.onSnapshot(sync.ncol,snap=>{
@@ -412,17 +416,39 @@ function attachData(){
   if(ch){saveNotes();lbag=[];renderNotes()}
  },err=>{$('nstat').textContent='Kata-kata belum ke-sinkron ('+(err.code||'error')+').'}));
 }
+const UDOM='@example.com';
+function toEmail(v){v=v.trim().toLowerCase();return v.includes('@')?v:v+UDOM}
+function whoAmI(u){return (u.email||'').endsWith(UDOM)?u.email.slice(0,-UDOM.length):(u.email||'')}
 function loginErr(c){
- return ({'auth/invalid-credential':'Email atau password salah.','auth/invalid-email':'Format email salah.','auth/too-many-requests':'Kebanyakan percobaan. Tunggu sebentar.','auth/network-request-failed':'Nggak ada internet.','auth/operation-not-allowed':'Login email/password belum diaktifin di Firebase.'})[c]||('Gagal masuk ('+c+')');
+ return ({'auth/invalid-credential':'Username atau password salah.','auth/invalid-email':'Username cuma boleh huruf kecil, angka, titik, atau garis bawah.','auth/too-many-requests':'Kebanyakan percobaan. Tunggu sebentar.','auth/network-request-failed':'Nggak ada internet.','auth/operation-not-allowed':'Login email/password belum diaktifin di Firebase.'})[c]||('Gagal masuk ('+c+')');
 }
 async function doLogin(){
  if(!sync||!sync.auth)return;
- try{setStatus('Masuk…');await sync.au.signInWithEmailAndPassword(sync.auth,$('lem').value.trim(),$('lpw').value);$('lpw').value=''}
+ const raw=$('lem').value.trim();if(!raw){setStatus('Isi username dulu.');return}
+ try{setStatus('Masuk…');try{await sync.au.setPersistence(sync.auth,$('lpub').checked?sync.au.browserSessionPersistence:sync.au.indexedDBLocalPersistence)}catch(e){}
+  await sync.au.signInWithEmailAndPassword(sync.auth,toEmail(raw),$('lpw').value);$('lpw').value=''}
  catch(e){setStatus(loginErr(e.code))}
 }
 $('lgo').onclick=doLogin;
 $('lpw').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin()});
-$('lout').onclick=()=>{if(sync&&sync.au)sync.au.signOut(sync.auth)};
+function clearPhotoCache(){return new Promise(r=>{if(!db)return r();try{const t=db.transaction('p','readwrite');t.objectStore('p').clear();t.oncomplete=()=>r();t.onerror=()=>r();t.onabort=()=>r()}catch(e){r()}})}
+async function clearLocal(){await clearPhotoCache();photos=[];notes=[];saveNotes();lbag=[];render();renderNotes()}
+$('lout').onclick=async()=>{
+ if(!sync||!sync.au)return;
+ if(!confirm('Keluar dan hapus foto yang tersimpan di perangkat ini? Foto di album online tetap aman.'))return;
+ locked=true;detachData();
+ try{await sync.au.signOut(sync.auth)}catch(e){}
+ await clearLocal();
+};
+$('lwipe').onclick=async()=>{
+ if(!sync||!sync.au)return;
+ if(!confirm('Keluar, hapus semua data app di perangkat ini, dan lupain sambungan? Album online tetap aman.'))return;
+ locked=true;detachData();
+ try{await sync.au.signOut(sync.auth)}catch(e){}
+ await clearLocal();
+ try{['alika-sync','alika-page','alika-times'].forEach(k=>localStorage.removeItem(k))}catch(e){}
+ sync=null;location.href=location.pathname;
+};
 $('ssave').onclick=()=>{
  try{
   const cfg=parseCfg($('cfg').value),code=$('code').value.trim();
@@ -439,6 +465,7 @@ $('soff').onclick=()=>{
 /* hati pixel + pesan dari abang */
 let lbag=[];
 function nextLove(){
+ if(locked)return '🔒 Masuk dulu ya.';
  if(!notes.length)return 'Belum ada kata-kata. Tulis dulu di kolom bawah ya 💌';
  lbag=lbag.filter(id=>notes.some(n=>n.id===id));
  if(!lbag.length)lbag=notes.map(n=>n.id).sort(()=>Math.random()-.5);
@@ -484,7 +511,7 @@ let notes=[];
 try{const n=JSON.parse(localStorage.getItem('alika-notes'));if(Array.isArray(n))notes=n.filter(x=>x&&x.id&&x.text)}catch(e){}
 function saveNotes(){try{localStorage.setItem('alika-notes',JSON.stringify(notes))}catch(e){}}
 function renderNotes(){
- const l=$('nlist');l.innerHTML='';
+ const l=$('nlist');l.innerHTML='';if(locked)return;
  notes.slice().sort((a,b)=>b.ts-a.ts).forEach(n=>{
   const d=document.createElement('div');d.className='nitem';
   const t=document.createElement('span');t.textContent=n.text;
@@ -525,7 +552,7 @@ document.querySelectorAll('#side [data-go]').forEach(b=>{b.onclick=()=>goPage(b.
 let startPage='beranda';try{startPage=localStorage.getItem('alika-page')||'beranda'}catch(e){}
 if(window.__magic)startPage='sinkron';
 goPage(startPage);
-(async()=>{db=await openDB();photos=await dbAll();render();scheduleNative();startSync()})();
+(async()=>{db=await openDB();photos=await dbAll();locked=!!getSync();render();renderNotes();scheduleNative();startSync()})();
 </script>
 </body>
 </html>
