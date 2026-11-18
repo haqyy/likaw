@@ -80,6 +80,13 @@ textarea.f{min-height:90px;resize:vertical}
 .nitem span{flex:1;overflow-wrap:anywhere}
 .nitem small{display:block;opacity:.75}
 .nitem button{width:36px;height:36px;border:3px solid var(--line);background:var(--lilac);color:var(--ink);border-radius:8px;font:700 1rem 'Pixelify Sans',sans-serif;cursor:pointer;padding:0;flex:none}
+.cb{width:48px;height:48px;border:3px solid var(--line);background:var(--lilac);color:var(--ink);border-radius:12px;font:700 1.15rem 'Pixelify Sans',sans-serif;cursor:pointer;box-shadow:3px 3px 0 var(--line);padding:0}
+.cb:active{transform:translate(3px,3px);box-shadow:none}
+.cb[aria-pressed="true"]{background:var(--pink);color:#fff}
+.ctl{display:flex;gap:8px;justify-content:center;margin:10px 0 4px}
+.nitem.act{background:var(--pink);color:#fff}
+.nitem .stitle{flex:1;width:auto;height:auto;text-align:left;border:0;background:none;color:inherit;padding:4px;font:600 .95rem 'Pixelify Sans',sans-serif;overflow-wrap:anywhere;box-shadow:none}
+#mini{margin-left:auto;font-size:.85rem;max-width:45%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .small{font-size:.85rem;opacity:.85;margin:10px 0 0}
 dialog{border:3px solid var(--line);border-radius:12px;background:var(--win);color:var(--ink);padding:0;max-width:92vw;width:380px;box-shadow:6px 6px 0 var(--line);font-family:'Pixelify Sans',sans-serif}
 dialog::backdrop{background:rgba(122,26,74,.55)}
@@ -90,13 +97,14 @@ dialog img{width:100%;display:block;max-height:60vh;object-fit:contain;backgroun
 </style>
 </head>
 <body>
-<header class="top"><button id="menu" aria-label="Buka menu" aria-expanded="false" aria-controls="side">☰</button><span id="ptitle">Beranda</span></header>
+<header class="top"><button id="menu" aria-label="Buka menu" aria-expanded="false" aria-controls="side">☰</button><span id="ptitle">Beranda</span><span id="mini" aria-hidden="true"></span></header>
 <div id="scrim" hidden></div>
 <nav id="side" aria-label="Menu utama">
  <div class="sh">alika.exe 💌</div>
  <button class="btn" data-go="beranda">🏠 Beranda</button>
  <button class="btn" data-go="album">🖼️ Album</button>
  <button class="btn" data-go="recap">📅 Recap</button>
+ <button class="btn" data-go="musik">🎵 Musik</button>
  <button class="btn" data-go="sinkron">☁️ Sinkron</button>
  <button class="btn" data-go="pengingat">🔔 Pengingat</button>
 </nav>
@@ -164,7 +172,27 @@ dialog img{width:100%;display:block;max-height:60vh;object-fit:contain;backgroun
   <button class="btn" id="lwipe" hidden>🧹 Keluar dan lupain perangkat ini</button>
   <button class="btn mint" id="slink" hidden>🔗 Salin link buat Alika</button>
   <button class="btn" id="soff" hidden>Putus sinkron</button>
-  <p class="small">Pakai kode album yang sama di HP abang dan HP Alika biar fotonya kebagi.</p>
+  <p class="small">Login pakai username dan password dari abang.</p>
+ </div>
+</div>
+
+<div class="win" data-page="musik">
+ <div class="bar"><span>musik.exe</span><span class="dots"><span></span><span></span></span></div>
+ <div class="body">
+  <div class="lmsg" id="snow" aria-live="polite">Belum ada lagu. Tambah dari HP lu 🎵</div>
+  <input type="range" id="sseek" min="0" max="1000" value="0" aria-label="Posisi lagu" style="width:100%;accent-color:var(--pink)">
+  <div class="small" id="stime" style="text-align:center">0:00 / 0:00</div>
+  <div class="ctl">
+   <button class="cb" id="sshuf" aria-pressed="false" aria-label="Acak lagu">🔀</button>
+   <button class="cb" id="sprev" aria-label="Lagu sebelumnya">⏮</button>
+   <button class="cb" id="splay" aria-label="Putar">▶</button>
+   <button class="cb" id="snext" aria-label="Lagu berikutnya">⏭</button>
+   <button class="cb" id="srep" aria-pressed="false" aria-label="Ulang: mati">🔁</button>
+  </div>
+  <input type="file" id="sfile" accept="audio/*" multiple hidden>
+  <button class="btn main" id="sadd">🎵 Tambah lagu dari HP</button>
+  <div class="small" id="sinfo"></div>
+  <div id="slist"></div>
  </div>
 </div>
 
@@ -178,6 +206,7 @@ dialog img{width:100%;display:block;max-height:60vh;object-fit:contain;backgroun
  </div>
 </div>
 </main>
+<audio id="aud" preload="metadata"></audio>
 
 <dialog id="view">
  <img id="big" alt="Foto">
@@ -202,7 +231,7 @@ let photos=[],db=null,openId=null,locked=false;
 const vp=()=>locked?[]:photos;
 
 /* storage: IndexedDB for photos, localStorage for times (both guarded) */
-function openDB(){return new Promise(res=>{try{const r=indexedDB.open('alika',1);r.onupgradeneeded=()=>r.result.createObjectStore('p',{keyPath:'id'});r.onsuccess=()=>res(r.result);r.onerror=()=>res(null)}catch(e){res(null)}})}
+function openDB(){return new Promise(res=>{try{const r=indexedDB.open('alika',2);r.onupgradeneeded=()=>{const d=r.result;if(!d.objectStoreNames.contains('p'))d.createObjectStore('p',{keyPath:'id'});if(!d.objectStoreNames.contains('s'))d.createObjectStore('s',{keyPath:'id'})};r.onsuccess=()=>res(r.result);r.onerror=()=>res(null)}catch(e){res(null)}})}
 function dbAll(){return new Promise(res=>{if(!db)return res([]);try{const q=db.transaction('p').objectStore('p').getAll();q.onsuccess=()=>res(q.result);q.onerror=()=>res([])}catch(e){res([])}})}
 function dbPut(p){if(!db)return;try{db.transaction('p','readwrite').objectStore('p').put(p)}catch(e){}}
 function dbDel(id){if(!db)return;try{db.transaction('p','readwrite').objectStore('p').delete(id)}catch(e){}}
@@ -340,9 +369,10 @@ $('sclose').onclick=()=>$('show').close();
 
 /* sinkron online (Firebase Firestore) */
 let sync=null;const SYNC_KEY='alika-sync';
-function getSync(){try{return JSON.parse(localStorage.getItem(SYNC_KEY))}catch(e){return null}}
+const DEFAULT_SYNC={cfg:{apiKey:"AIzaSyCcFGFvOZaHhfATQUsjfB_tJnyy7p-2rjo",authDomain:"likaws.firebaseapp.com",projectId:"likaws",storageBucket:"likaws.firebasestorage.app",messagingSenderId:"273983347279",appId:"1:273983347279:web:b5b3c952153ea2390da83a"},code:"alikakesayanganabang",name:""};
+function getSync(){try{const v=JSON.parse(localStorage.getItem(SYNC_KEY));if(v&&v.cfg&&v.code)return v}catch(e){}return DEFAULT_SYNC}
 function setStatus(t){$('syncs').textContent=t}
-function showForm(on){$('syncform').hidden=!on;$('soff').hidden=on;$('slink').hidden=on;if(on){$('loginform').hidden=true;$('lout').hidden=true;$('lwipe').hidden=true}}
+function showForm(on){$('syncform').hidden=!on;$('soff').hidden=true;$('slink').hidden=true;if(on){$('loginform').hidden=true;$('lout').hidden=true;$('lwipe').hidden=true}}
 function showLogin(on){$('loginform').hidden=!on;$('lout').hidden=on;$('lwipe').hidden=on}
 function parseCfg(txt){
  const m=txt.match(/\{[\s\S]*\}/);if(!m)throw 0;
@@ -379,11 +409,11 @@ async function startSync(){
   const B='https://www.gstatic.com/firebasejs/10.14.1/';
   const [a,fs,au]=await Promise.all([import(B+'firebase-app.js'),import(B+'firebase-firestore.js'),import(B+'firebase-auth.js')]);
   const app=a.initializeApp(st.cfg),fdb=fs.getFirestore(app),auth=au.getAuth(app);
-  sync={fs,au,auth,fdb,st,started:true,unsubs:[],col:null,ncol:null};
+  sync={fs,au,auth,fdb,st,started:true,unsubs:[],col:null,ncol:null,wasOut:false};
   au.onAuthStateChanged(auth,user=>{
    if(!sync)return;
-   if(user){locked=false;renderNotes();const who=whoAmI(user);sync.who=who;if(!st.name){st.name=who;try{localStorage.setItem(SYNC_KEY,JSON.stringify(st))}catch(e){}}showLogin(false);attachData()}
-   else{detachData();locked=true;render();renderNotes();showLogin(true);setStatus('Masuk dulu pakai username dan password.')}
+   if(user){locked=false;renderNotes();const who=whoAmI(user);sync.who=who;if(!st.name){st.name=who;try{localStorage.setItem(SYNC_KEY,JSON.stringify(st))}catch(e){}}showLogin(false);if(sync.wasOut){sync.wasOut=false;goPage('beranda')}attachData()}
+   else{detachData();locked=true;sync.wasOut=true;render();renderNotes();showLogin(true);goPage('sinkron');setStatus('Masuk dulu pakai username dan password.')}
   });
  }catch(e){setStatus('Gagal sambung. Cek internet atau config-nya.');showForm(true)}
 }
@@ -446,6 +476,7 @@ $('lwipe').onclick=async()=>{
  locked=true;detachData();
  try{await sync.au.signOut(sync.auth)}catch(e){}
  await clearLocal();
+ await clearSongs();
  try{['alika-sync','alika-page','alika-times'].forEach(k=>localStorage.removeItem(k))}catch(e){}
  sync=null;location.href=location.pathname;
 };
@@ -533,8 +564,99 @@ $('nbtn').onclick=addNote;
 $('ntext').addEventListener('keydown',e=>{if(e.key==='Enter')addNote()});
 renderNotes();
 
+/* musik */
+let songs=[],cur=-1,shuf=false,rep=0,curUrl=null,seeking=false;
+const aud=$('aud');
+function songsAll(){return new Promise(r=>{if(!db)return r([]);try{const q=db.transaction('s').objectStore('s').getAll();q.onsuccess=()=>r(q.result||[]);q.onerror=()=>r([])}catch(e){r([])}})}
+function songPut(x){return new Promise(r=>{if(!db)return r(false);try{const t=db.transaction('s','readwrite');t.objectStore('s').put(x);t.oncomplete=()=>r(true);t.onerror=()=>r(false);t.onabort=()=>r(false)}catch(e){r(false)}})}
+function songDel(id){return new Promise(r=>{if(!db)return r();try{const t=db.transaction('s','readwrite');t.objectStore('s').delete(id);t.oncomplete=()=>r();t.onerror=()=>r();t.onabort=()=>r()}catch(e){r()}})}
+async function clearSongs(){
+ try{aud.pause();aud.removeAttribute('src');aud.load()}catch(e){}
+ if(db){await new Promise(r=>{try{const t=db.transaction('s','readwrite');t.objectStore('s').clear();t.oncomplete=()=>r();t.onerror=()=>r();t.onabort=()=>r()}catch(e){r()}})}
+ songs=[];cur=-1;renderSongs();
+}
+const fmt=t=>{if(!isFinite(t))return '0:00';t=Math.floor(t);return Math.floor(t/60)+':'+String(t%60).padStart(2,'0')};
+function renderSongs(){
+ const l=$('slist');l.innerHTML='';
+ songs.forEach((sg,i)=>{
+  const d=document.createElement('div');d.className='nitem'+(i===cur?' act':'');
+  const t=document.createElement('button');t.className='stitle';t.textContent=(i===cur?'♪ ':'')+sg.name;t.onclick=()=>playIdx(i);
+  const x=document.createElement('button');x.textContent='✕';x.setAttribute('aria-label','Hapus lagu '+sg.name);
+  x.onclick=()=>removeSong(i);
+  d.appendChild(t);d.appendChild(x);l.appendChild(d);
+ });
+ const total=songs.reduce((a,b)=>a+(b.size||0),0);
+ $('sinfo').textContent=songs.length?songs.length+' lagu · '+(total/1048576).toFixed(1)+' MB di perangkat ini':'Lagu disimpen di perangkat ini aja.';
+}
+function playIdx(i){
+ if(i<0||i>=songs.length)return;
+ cur=i;const sg=songs[i];
+ if(curUrl)URL.revokeObjectURL(curUrl);
+ curUrl=URL.createObjectURL(sg.blob);aud.src=curUrl;
+ aud.play().catch(()=>{});
+ $('snow').textContent='♪ '+sg.name;
+ try{if('mediaSession' in navigator)navigator.mediaSession.metadata=new MediaMetadata({title:sg.name,artist:'Foto buat Alika'})}catch(e){}
+ renderSongs();
+}
+function nextIdx(dir){
+ if(!songs.length)return -1;
+ if(shuf&&songs.length>1){let n;do{n=Math.floor(Math.random()*songs.length)}while(n===cur);return n}
+ return (cur+dir+songs.length)%songs.length;
+}
+async function removeSong(i){
+ const sg=songs[i];if(!sg)return;
+ if(!confirm('Hapus lagu "'+sg.name+'" dari perangkat ini?'))return;
+ await songDel(sg.id);songs.splice(i,1);
+ if(i===cur){try{aud.pause();aud.removeAttribute('src');aud.load()}catch(e){}cur=-1;$('snow').textContent='Pilih lagu dari daftar 🎵'}
+ else if(i<cur)cur--;
+ renderSongs();
+}
+$('sadd').onclick=()=>$('sfile').click();
+$('sfile').onchange=async e=>{
+ const files=[...e.target.files];let fail=0;$('sadd').textContent='⏳ Nyimpen…';
+ for(const f of files){
+  const x={id:Date.now()+'-'+Math.random().toString(36).slice(2,6),name:f.name.replace(/\.[^.]+$/,''),blob:f.slice(0,f.size,f.type||'audio/mpeg'),size:f.size,ts:Date.now()};
+  if(await songPut(x))songs.push(x);else fail++;
+ }
+ $('sadd').textContent='🎵 Tambah lagu dari HP';e.target.value='';renderSongs();
+ if(!songs.length||cur<0)$('snow').textContent=songs.length?'Pilih lagu dari daftar 🎵':'Belum ada lagu. Tambah dari HP lu 🎵';
+ if(fail)$('sinfo').textContent='Ada '+fail+' lagu gagal disimpen (penyimpanan penuh?).';
+};
+$('splay').onclick=()=>{
+ if(!songs.length)return;
+ if(cur<0||!aud.src){playIdx(cur<0?0:cur);return}
+ if(aud.paused)aud.play().catch(()=>{});else aud.pause();
+};
+$('snext').onclick=()=>playIdx(nextIdx(1));
+$('sprev').onclick=()=>{if(aud.currentTime>3){aud.currentTime=0;return}playIdx(nextIdx(-1))};
+$('sshuf').onclick=()=>{shuf=!shuf;$('sshuf').setAttribute('aria-pressed',shuf)};
+$('srep').onclick=()=>{
+ rep=(rep+1)%3;const b=$('srep');
+ b.textContent=rep===2?'🔂':'🔁';b.setAttribute('aria-pressed',rep>0);
+ b.setAttribute('aria-label','Ulang: '+['mati','semua','satu lagu'][rep]);
+};
+aud.addEventListener('ended',()=>{
+ if(rep===2){aud.currentTime=0;aud.play().catch(()=>{});return}
+ if(rep===0&&!shuf&&cur===songs.length-1)return;
+ playIdx(nextIdx(1));
+});
+aud.addEventListener('play',()=>{$('splay').textContent='⏸';$('splay').setAttribute('aria-label','Jeda');$('mini').textContent=cur>=0&&songs[cur]?'♪ '+songs[cur].name:''});
+aud.addEventListener('pause',()=>{$('splay').textContent='▶';$('splay').setAttribute('aria-label','Putar');$('mini').textContent=''});
+aud.addEventListener('timeupdate',()=>{
+ if(!aud.duration)return;
+ if(!seeking)$('sseek').value=aud.currentTime/aud.duration*1000;
+ $('stime').textContent=fmt(aud.currentTime)+' / '+fmt(aud.duration);
+});
+$('sseek').addEventListener('input',()=>{seeking=true;if(aud.duration)aud.currentTime=$('sseek').value/1000*aud.duration});
+$('sseek').addEventListener('change',()=>{seeking=false});
+try{if('mediaSession' in navigator){
+ const ms=navigator.mediaSession;
+ ms.setActionHandler('play',()=>aud.play());ms.setActionHandler('pause',()=>aud.pause());
+ ms.setActionHandler('previoustrack',()=>playIdx(nextIdx(-1)));ms.setActionHandler('nexttrack',()=>playIdx(nextIdx(1)));
+}}catch(e){}
+
 /* sidebar */
-const PAGES={beranda:'Beranda',album:'Album',recap:'Recap',sinkron:'Sinkron',pengingat:'Pengingat'};
+const PAGES={beranda:'Beranda',album:'Album',recap:'Recap',musik:'Musik',sinkron:'Sinkron',pengingat:'Pengingat'};
 function closeSide(){$('side').classList.remove('open');$('scrim').hidden=true;$('menu').setAttribute('aria-expanded','false')}
 function openSide(){$('side').classList.add('open');$('scrim').hidden=false;$('menu').setAttribute('aria-expanded','true');const f=$('side').querySelector('[data-go]');if(f)f.focus()}
 function goPage(k){
@@ -552,7 +674,7 @@ document.querySelectorAll('#side [data-go]').forEach(b=>{b.onclick=()=>goPage(b.
 let startPage='beranda';try{startPage=localStorage.getItem('alika-page')||'beranda'}catch(e){}
 if(window.__magic)startPage='sinkron';
 goPage(startPage);
-(async()=>{db=await openDB();photos=await dbAll();locked=!!getSync();render();renderNotes();scheduleNative();startSync()})();
+(async()=>{db=await openDB();photos=await dbAll();songs=(await songsAll()).sort((a,b)=>a.ts-b.ts);renderSongs();locked=!!getSync();render();renderNotes();scheduleNative();startSync()})();
 </script>
 </body>
 </html>
